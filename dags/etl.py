@@ -2,12 +2,12 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.dummy import DummyOperator
 from airflow.operators.mysql_operator import MySqlOperator
+from airflow.models import Variable
 import datetime
 import requests
 import pandas as pd
 from sqlalchemy import create_engine
 import mysql.connector
-from sqlalchemy.engine import URL
 
 def extract_pikobar_staging_table():
     url = 'http://103.150.197.96:5005/api/v1/rekapitulasi_v2/jabar/harian'
@@ -15,17 +15,17 @@ def extract_pikobar_staging_table():
     data = response.json()
     df = pd.DataFrame(data['data']['content'])
 
-    engine = create_engine("mysql+mysqlconnector://root:secret@172.18.0.1/stage_db")
+    engine = create_engine(Variable.get('mysql_connector'))
     df.to_sql('pikobar_staging', con=engine, if_exists='replace', index=False)
 
     print('OK')
 
 def extract_dim_province_table():
     mydb = mysql.connector.connect(
-        host="172.18.0.1",
-        user="root",
-        password="secret",
-        database="stage_db"
+        host=Variable.get('mysql_host'),
+        user=Variable.get('mysql_user'),
+        password=Variable.get('mysql_password'),
+        database=Variable.get('mysql_db')
     )
     mycursor = mydb.cursor()
     mycursor.execute("SELECT DISTINCT kode_prov, nama_prov FROM pikobar_staging")
@@ -38,17 +38,17 @@ def extract_dim_province_table():
         }
         arr.append(thisdict)
     
-    engine = create_engine("mysql+mysqlconnector://root:secret@172.18.0.1/stage_db")
+    engine = create_engine(Variable.get('mysql_connector'))
     df = pd.DataFrame(arr)
     df.to_sql('dim_province', con=engine, if_exists='replace', index=False)
     print("OK")    
 
 def extract_dim_district_table():
     mydb = mysql.connector.connect(
-        host="172.18.0.1",
-        user="root",
-        password="secret",
-        database="stage_db"
+        host=Variable.get('mysql_host'),
+        user=Variable.get('mysql_user'),
+        password=Variable.get('mysql_password'),
+        database=Variable.get('mysql_db')
     )
     mycursor = mydb.cursor()
     mycursor.execute("SELECT DISTINCT kode_kab, kode_prov, nama_kab FROM pikobar_staging")
@@ -62,7 +62,7 @@ def extract_dim_district_table():
         }
         arr.append(thisdict)
     
-    engine = create_engine("mysql+mysqlconnector://root:secret@172.18.0.1/stage_db")
+    engine = create_engine(Variable.get('mysql_connector'))
     df = pd.DataFrame(arr)
     df.to_sql('dim_district', con=engine, if_exists='replace', index=False)
     print("OK")    
@@ -80,7 +80,7 @@ def load_district_monthly(**kwargs):
         }
         arr.append(thisdict)
         
-    engine = create_engine('postgresql+psycopg2://postgres:secret@172.18.0.1:5436/destination_db')
+    engine = create_engine(Variable.get('postgres_connector'))
     df = pd.DataFrame(arr)
     df.to_sql('district_monthly', con=engine, if_exists='replace', index=False)
     print("Message: Success load district monthly")  
@@ -98,7 +98,7 @@ def load_district_yearly(**kwargs):
         }
         arr.append(thisdict)
     
-    engine = create_engine('postgresql+psycopg2://postgres:secret@172.18.0.1:5436/destination_db')
+    engine = create_engine(Variable.get('postgres_connector'))
     df = pd.DataFrame(arr)
     df.to_sql('district_yearly', con=engine, if_exists='replace', index=False)
     print("Message: Success load district yearly") 
@@ -116,7 +116,7 @@ def load_province_daily(**kwargs):
         }
         arr.append(thisdict)
 
-    engine = create_engine('postgresql+psycopg2://postgres:secret@172.18.0.1:5436/destination_db')
+    engine = create_engine(Variable.get('postgres_connector'))
     df = pd.DataFrame(arr)
     df.to_sql('province_daily', con=engine, if_exists='replace', index=False)
     print("Message: Success load province daily") 
@@ -134,7 +134,7 @@ def load_province_monthly(**kwargs):
         }
         arr.append(thisdict)
 
-    engine = create_engine('postgresql+psycopg2://postgres:secret@172.18.0.1:5436/destination_db')
+    engine = create_engine(Variable.get('postgres_connector'))
     df = pd.DataFrame(arr)
     df.to_sql('province_monthly', con=engine, if_exists='replace', index=False)
     print("Message: Success load province monthly") 
@@ -152,7 +152,7 @@ def load_province_yearly(**kwargs):
         }
         arr.append(thisdict)
 
-    engine = create_engine('postgresql+psycopg2://postgres:secret@172.18.0.1:5436/destination_db')
+    engine = create_engine(Variable.get('postgres_connector'))
     df = pd.DataFrame(arr)
     df.to_sql('province_yearly', con=engine, if_exists='replace', index=False)
     print("Message: Success load province yearly") 
